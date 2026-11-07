@@ -1,0 +1,115 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Movie Night Planner design system.
+ * Cinematic dark palette from the master specification, expressed in oklch.
+ * Background #101116 · Secondary #191B24 · Elevated #272A36 · Primary #8B70E8
+ * Lavender #B9A7FF · Text #F4F2F8 · Muted text #8C91A1 · Success #35B98A · Warning #E5A44B
+ */
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-lavender: var(--lavender);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+:root {
+  --radius: 0.875rem;
+  --background: oklch(0.179 0.010 276.4);          /* #101116 */
+  --foreground: oklch(0.964 0.008 301.4);          /* #F4F2F8 */
+  --card: oklch(0.224 0.018 275.1);                /* #191B24 */
+  --card-foreground: oklch(0.964 0.008 301.4);
+  --popover: oklch(0.287 0.022 273.9);             /* #272A36 */
+  --popover-foreground: oklch(0.964 0.008 301.4);
+  --primary: oklch(0.628 0.174 290.9);             /* #8B70E8 */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.287 0.022 273.9);
+  --secondary-foreground: oklch(0.964 0.008 301.4);
+  --muted: oklch(0.243 0.018 274.7);
+  --muted-foreground: oklch(0.658 0.024 271.9);    /* #8C91A1 */
+  --accent: oklch(0.287 0.022 273.9);
+  --accent-foreground: oklch(0.964 0.008 301.4);
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.703 0.133 164.6);             /* #35B98A */
+  --warning: oklch(0.765 0.130 72.1);              /* #E5A44B */
+  --lavender: oklch(0.777 0.125 292.7);            /* #B9A7FF */
+  --border: oklch(0.317 0.027 275.9);
+  --input: oklch(0.317 0.027 275.9);
+  --ring: oklch(0.628 0.174 290.9);
+  --chart-1: oklch(0.628 0.174 290.9);
+  --chart-2: oklch(0.703 0.133 164.6);
+  --chart-3: oklch(0.765 0.130 72.1);
+  --chart-4: oklch(0.777 0.125 292.7);
+  --chart-5: oklch(0.658 0.024 271.9);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-primary) 40%, transparent);
+  }
+}
+
+/* Soft glow used by the AI insight card and featured recommendation. */
+@utility glow-primary {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 35%, transparent),
+    0 0 44px -8px color-mix(in oklab, var(--color-primary) 38%, transparent);
+}
+
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
