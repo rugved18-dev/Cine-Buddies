@@ -28,36 +28,45 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/health", "/error", "/actuator/**").permitAll()
-                // Rooms endpoints remain open for development; change to authenticated() when required
-                .requestMatchers("/api/rooms/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**", "/api/health", "/error", "/actuator/**").permitAll()
+                        // Rooms endpoints remain open for development; change to authenticated() when required
+                        .requestMatchers("/api/rooms/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfigurationSource corsConfigurationSource
+            
+        () {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+            // Explicitly allow your Vercel domain and localhost
+            config.setAllowedOrigins(List.of(
+                    "https://cine-buddies.vercel.app",
+                    "http://localhost:5173",
+                    "http://localhost:8080"
+            ));
+            // MUST include OPTIONS for preflight checks
+            config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+            config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+            config.setAllowCredentials(true);
+            UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+            source.registerCorsConfiguration("/**", config);
+            return source;
+        }
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
+        @Bean
+        public PasswordEncoder passwordEncoder
+            
+        () {
         return new BCryptPasswordEncoder();
-    }
+        }
 
-}
+    }
