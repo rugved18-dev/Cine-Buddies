@@ -2,6 +2,7 @@ package com.cinebuddies.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -28,13 +29,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/health", "/error", "/actuator/**").permitAll()
-                        // Rooms endpoints remain open for development; change to authenticated() when required
-                        .requestMatchers("/api/rooms/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CRITICAL: Unblocks preflight
+                        .requestMatchers("/api/auth/**", "/api/rooms/**", "/api/health", "/error", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -47,26 +47,19 @@ public class SecurityConfig {
             
         () {
         CorsConfiguration config = new CorsConfiguration();
-            // Explicitly allow your Vercel domain and localhost
-            config.setAllowedOrigins(List.of(
-                    "https://cine-buddies.vercel.app",
-                    "http://localhost:5173",
-                    "http://localhost:8080"
-            ));
-            // MUST include OPTIONS for preflight checks
-            config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-            config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-            config.setAllowCredentials(true);
-            UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-            source.registerCorsConfiguration("/**", config);
-            return source;
-        }
+        config.setAllowedOrigins(List.of("https://cine-buddies.vercel.app", "http://localhost:5173", "http://localhost:8080"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*")); // Allow all headers
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 
         @Bean
         public PasswordEncoder passwordEncoder
             
         () {
         return new BCryptPasswordEncoder();
-        }
-
     }
+}
