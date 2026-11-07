@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -19,13 +19,24 @@ function PreferencesPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  if (!room) return null;
-
-  const members = room.members || [];
+  const members = room?.members || [];
   const myMemberId =
-    roomService.getMyMemberId(room.code) ||
-    members.find((member) => session.user?.name && member.name?.toLowerCase() === session.user.name.toLowerCase())?.id ||
-    members[0]?.id;
+    room ? (
+      roomService.getMyMemberId(room.code) ||
+      members.find((member) => session.user?.name && member.name?.toLowerCase() === session.user.name.toLowerCase())?.id ||
+      null
+    ) : null;
+
+  // Guard: Step 2 (Preferences) requires having joined the room lobby first
+  useEffect(() => {
+    if (!room) return;
+    if (!myMemberId) {
+      toast.error("Please join the room lobby before setting your preferences.");
+      void navigate({ to: "/room/$code", params: { code: room.code } });
+    }
+  }, [room, myMemberId, navigate]);
+
+  if (!room) return null;
 
   const handleSubmit = async (preferences: Preferences) => {
     if (!myMemberId) {

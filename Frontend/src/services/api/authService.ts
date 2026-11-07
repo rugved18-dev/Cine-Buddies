@@ -17,6 +17,13 @@ export interface AuthResponse {
 
 const AUTH_STORAGE_KEY = "cinebuddies_jwt";
 const USER_STORAGE_KEY = "cinebuddies_user";
+export const AUTH_CHANGE_EVENT = "cinebuddies:auth-change";
+
+export function notifyAuthChange(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT));
+  }
+}
 
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -30,6 +37,7 @@ export function setStoredToken(token: string | null): void {
   } else {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }
+  notifyAuthChange();
 }
 
 export function getStoredUser(): { id: string; email: string; displayName: string } | null {
@@ -49,6 +57,7 @@ export function setStoredUser(user: { id: string; email: string; displayName: st
   } else {
     localStorage.removeItem(USER_STORAGE_KEY);
   }
+  notifyAuthChange();
 }
 
 /**
@@ -78,6 +87,36 @@ export async function authenticateWithGoogle(idToken: string): Promise<AuthRespo
     email: response.email,
   });
 
+  notifyAuthChange();
+  return response;
+}
+
+/**
+ * Updates basic user information (e.g. display name) and persists it directly to the database.
+ */
+export async function updateUserProfile(userId: string, displayName: string): Promise<AuthResponse> {
+  if (!userId || !displayName.trim()) {
+    throw new Error("User ID and display name are required.");
+  }
+
+  const response = await request<AuthResponse>(`/auth/profile/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify({ displayName: displayName.trim() }),
+  });
+
+  setStoredToken(response.token);
+  setStoredUser({
+    id: response.userId,
+    email: response.email,
+    displayName: response.displayName,
+  });
+
+  await roomService.setUser({
+    name: response.displayName,
+    email: response.email,
+  });
+
+  notifyAuthChange();
   return response;
 }
 
@@ -85,4 +124,5 @@ export async function signOut(): Promise<void> {
   setStoredToken(null);
   setStoredUser(null);
   await roomService.clearSession();
+  notifyAuthChange();
 }

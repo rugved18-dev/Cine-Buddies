@@ -8,6 +8,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import * as roomService from "@/services/api/roomService";
+import { AUTH_CHANGE_EVENT } from "@/services/api/authService";
 import type { Room } from "@/types/movie-night";
 
 export interface SessionUser {
@@ -21,6 +22,7 @@ export interface SessionState {
   rooms: Record<string, Room>;
   activeRoom: Room | null;
   refreshRoom: (code: string) => Promise<Room | null>;
+  setUser: (user: SessionUser | null) => void;
 }
 
 const RoomContext = createContext<SessionState>({
@@ -28,6 +30,7 @@ const RoomContext = createContext<SessionState>({
   rooms: {},
   activeRoom: null,
   refreshRoom: async () => null,
+  setUser: () => {},
 });
 
 export function useSession(): SessionState {
@@ -77,15 +80,21 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [rooms, setRooms] = useState<Record<string, Room>>({});
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
 
-  // Hydrate user from localStorage once mounted on client
+  // Hydrate user from localStorage once mounted on client & keep in sync with auth changes
   useEffect(() => {
     setUserState(roomService.getUser());
 
-    const handleStorage = () => {
+    const syncUser = () => {
       setUserState(roomService.getUser());
     };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+
+    window.addEventListener("storage", syncUser);
+    window.addEventListener(AUTH_CHANGE_EVENT, syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener(AUTH_CHANGE_EVENT, syncUser);
+    };
   }, []);
 
   const refreshRoom = useCallback(async (code: string): Promise<Room | null> => {
@@ -103,6 +112,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     rooms,
     activeRoom,
     refreshRoom,
+    setUser: setUserState,
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;

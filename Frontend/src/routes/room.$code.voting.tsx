@@ -46,6 +46,17 @@ function VotingPage() {
 
   const normalizedCode = code?.trim().toUpperCase() ?? "";
 
+  // Guard: Step 5 (Voting) requires preferences & recommendations before voting begins
+  useEffect(() => {
+    if (!room) return;
+    const members = room.members || [];
+    const readyCount = members.filter((m) => m.preferencesSubmitted).length;
+    if (readyCount === 0) {
+      toast.error("Submit preferences first before starting group voting.");
+      void navigate({ to: "/room/$code", params: { code: room.code } });
+    }
+  }, [room, navigate]);
+
   // Load recommendations
   useEffect(() => {
     if (!normalizedCode) return;
@@ -99,8 +110,7 @@ if (!room) return null;
 const members = room.members || [];
 const myMemberId =
   roomService.getMyMemberId(room.code) ||
-  members.find((m) => session.user?.name && m.name?.toLowerCase() === session.user.name.toLowerCase())?.id ||
-  members[0]?.id;
+  members.find((m) => session.user?.name && m.name?.toLowerCase() === session.user.name.toLowerCase())?.id;
 
 const hostMember = members.find((m) => m.isHost) || members[0];
 const isHost = myMemberId === hostMember?.id;

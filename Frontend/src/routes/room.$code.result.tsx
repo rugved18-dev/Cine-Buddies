@@ -27,6 +27,16 @@ function ResultPage() {
 
   const normalizedCode = code?.trim().toUpperCase() ?? "";
 
+  // Guard: Step 6 (Result) can ONLY be accessed after Step 5 (Voting) is finalized
+  useEffect(() => {
+    if (!room) return;
+    const isFinalized = Boolean(room.isFinalized || room.finalized || room.winnerMovieId);
+    if (!isFinalized) {
+      toast.error("The group vote has not been finalized yet. Cast your votes first!");
+      void navigate({ to: "/room/$code/voting", params: { code: room.code } });
+    }
+  }, [room?.isFinalized, room?.finalized, room?.winnerMovieId, room?.code, navigate]);
+
   useEffect(() => {
     if (!normalizedCode) return;
     let active = true;

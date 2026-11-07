@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -74,6 +75,23 @@ public class AuthService {
 
         String jwt = jwtService.generateToken(user);
 
+        return new AuthResponse(jwt, user.getId(), user.getEmail(), user.getDisplayName());
+    }
+
+    public AuthResponse updateProfile(UUID userId, String displayName) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null.");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+
+        if (displayName != null && !displayName.trim().isEmpty()) {
+            user.setDisplayName(displayName.trim());
+            user.setUpdatedAt(java.time.Instant.now());
+            userRepository.save(user);
+        }
+
+        String jwt = jwtService.generateToken(user);
         return new AuthResponse(jwt, user.getId(), user.getEmail(), user.getDisplayName());
     }
 }

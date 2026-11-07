@@ -27,11 +27,26 @@ function LobbyPage() {
   const me =
     members.find((member) => member.id === myMemberId) ||
     members.find((member) => session.user?.name && member.name?.toLowerCase() === session.user.name.toLowerCase()) ||
-    members[0];
+    null;
 
   const joined = members.filter((member) => member.joined);
   const ready = joined.filter((member) => member.preferencesSubmitted).length;
   const allReady = joined.length > 0 && ready === joined.length;
+
+  const handleJoin = async () => {
+    if (!session.user?.name) {
+      toast.info("Please sign in to join the room.");
+      void navigate({ to: "/join" });
+      return;
+    }
+    try {
+      await roomService.joinRoom({ code: room.code, displayName: session.user.name });
+      await session.refreshRoom(room.code);
+      toast.success(`You joined “${room.name}”!`);
+    } catch {
+      toast.error("Could not join room. Please try again.");
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -107,11 +122,7 @@ function LobbyPage() {
               <p className="mt-1.5 text-xs text-muted-foreground">Join the room to submit preferences and vote.</p>
               <Button
                 className="mt-4 w-full"
-                onClick={() =>
-                  void roomService.joinRoom({ code: room.code, displayName: session.user?.name ?? "You" }).then(() => {
-                    toast.success("You joined the room");
-                  })
-                }
+                onClick={() => void handleJoin()}
               >
                 Join this room
               </Button>

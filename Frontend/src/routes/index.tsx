@@ -1,10 +1,12 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useNavigate, createFileRoute } from "@tanstack/react-router";
 import { ListChecks, Sparkles, Users, Vote, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { AppHeader } from "@/components/movie-night/AppHeader";
-import { buttonVariants } from "@/components/common/Button";
+import { Button } from "@/components/common/Button";
 import { useSession } from "@/context/RoomContext";
-import { cn } from "@/lib/utils";
+import * as authService from "@/services/api/authService";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -58,10 +60,38 @@ const STEPS = [
 
 function LandingPage() {
   const session = useSession();
+  const navigate = useNavigate();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const storedUser = mounted && typeof window !== "undefined" ? authService.getStoredUser() : null;
+  const token = mounted && typeof window !== "undefined" ? authService.getStoredToken() : null;
+  const isAuthenticated = Boolean((session.user?.name || storedUser?.displayName) && token);
+
+  const handleCreateRoom = () => {
+    if (isAuthenticated) {
+      void navigate({ to: "/create" });
+    } else {
+      toast.info("Please sign in with Google to create a room.");
+      void navigate({ to: "/signin", search: { redirect: "/create" } });
+    }
+  };
+
+  const handleJoinRoom = () => {
+    if (isAuthenticated) {
+      void navigate({ to: "/join" });
+    } else {
+      toast.info("Please sign in with Google to join a room.");
+      void navigate({ to: "/signin", search: { redirect: "/join" } });
+    }
+  };
 
   return (
     <div className="min-h-screen">
-      <AppHeader userName={session.user?.name ?? null} />
+      <AppHeader />
 
       <main>
         {/* Hero */}
@@ -89,12 +119,12 @@ function LandingPage() {
               taste into a shortlist you vote on together.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/create" className={cn(buttonVariants({ variant: "primary", size: "lg" }), "no-underline")}>
+              <Button size="lg" onClick={handleCreateRoom}>
                 Create a room
-              </Link>
-              <Link to="/join" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "no-underline")}>
+              </Button>
+              <Button variant="secondary" size="lg" onClick={handleJoinRoom}>
                 Join with a code
-              </Link>
+              </Button>
             </div>
           </div>
         </section>

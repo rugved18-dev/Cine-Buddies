@@ -30,10 +30,7 @@ function RoomLayout() {
 
   return (
     <div className="min-h-screen">
-      <AppHeader
-        userName={session.user?.name ?? null}
-        subtitle={room ? room.name : undefined}
-      />
+      <AppHeader subtitle={room ? room.name : undefined} />
       <main className="mx-auto w-full max-w-5xl px-4 pb-20 pt-6 sm:px-6">
         {room ? (
           <>

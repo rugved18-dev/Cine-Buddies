@@ -24,11 +24,9 @@ export function AppHeader({ userName: propUserName, subtitle, className }: AppHe
   }, []);
 
   // Avoid hydration mismatch by waiting for client mount before rendering authenticated state
-  const userName = mounted
-    ? propUserName !== undefined
-      ? propUserName
-      : session.user?.name
-    : null;
+  const storedUser = mounted && typeof window !== "undefined" ? authService.getStoredUser() : null;
+  const resolvedName = (propUserName && propUserName.trim()) || session.user?.name || storedUser?.displayName || null;
+  const userName = mounted ? resolvedName : null;
 
   const handleSignOut = async () => {
     await authService.signOut();
@@ -48,7 +46,7 @@ export function AppHeader({ userName: propUserName, subtitle, className }: AppHe
             <Popcorn size={18} strokeWidth={2} />
           </span>
           <span className="flex flex-col leading-tight">
-            <span className="text-sm font-bold tracking-tight text-foreground">Movie Night Planner</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">CineBuddies</span>
             {subtitle ? (
               <span className="max-w-[45vw] truncate text-xs text-muted-foreground">{subtitle}</span>
             ) : null}
@@ -56,7 +54,8 @@ export function AppHeader({ userName: propUserName, subtitle, className }: AppHe
         </Link>
         {userName ? (
           <div className="flex items-center gap-2">
-            <span className="max-w-[35vw] truncate rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
+            <span className="max-w-[35vw] truncate rounded-full border border-primary/40 bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground flex items-center gap-2 shadow-sm">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
               {userName}
             </span>
             <button

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, createFileRoute } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/common/Button";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -22,6 +23,17 @@ function RecommendationsPage() {
   const navigate = useNavigate();
   const [movies, setMovies] = useState<Movie[] | null>(null);
   const [selected, setSelected] = useState<Movie | null>(null);
+
+  // Guard: Step 4 (Picks) requires preferences before recommendations can be viewed
+  useEffect(() => {
+    if (!room) return;
+    const members = room.members || [];
+    const readyCount = members.filter((m) => m.preferencesSubmitted).length;
+    if (readyCount === 0) {
+      toast.error("Submit preferences first before viewing movie picks.");
+      void navigate({ to: "/room/$code", params: { code: room.code } });
+    }
+  }, [room, navigate]);
 
   useEffect(() => {
     if (!room?.code) return;

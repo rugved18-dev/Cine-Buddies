@@ -1,9 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AppHeader } from "@/components/movie-night/AppHeader";
 import { AuthForm } from "@/components/movie-night/AuthForm";
+import { useSession } from "@/context/RoomContext";
+import * as authService from "@/services/api/authService";
 
 export const Route = createFileRoute("/signin")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : "/create",
+  }),
   head: () => ({
     meta: [
       { title: "Sign In with Google · CineBuddies" },
@@ -21,6 +27,25 @@ export const Route = createFileRoute("/signin")({
 });
 
 function SignInPage() {
+  const { redirect } = Route.useSearch();
+  const session = useSession();
+  const navigate = useNavigate();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const storedUser = mounted && typeof window !== "undefined" ? authService.getStoredUser() : null;
+  const token = mounted && typeof window !== "undefined" ? authService.getStoredToken() : null;
+  const isAuthenticated = Boolean((session.user?.name || storedUser?.displayName) && token);
+
+  useEffect(() => {
+    if (mounted && isAuthenticated) {
+      void navigate({ to: redirect });
+    }
+  }, [mounted, isAuthenticated, redirect, navigate]);
+
   return (
     <div className="min-h-screen">
       <AppHeader />
@@ -32,7 +57,7 @@ function SignInPage() {
           Continue with Google to host a new movie night or rejoin your group.
         </p>
         <div className="mt-6 rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-          <AuthForm />
+          <AuthForm redirectPath={redirect} />
         </div>
       </main>
     </div>

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Loader2, AlertCircle, User, ArrowRight, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/common/Button";
+import { Input } from "@/components/common/Input";
 import * as authService from "@/services/api/authService";
 
 declare global {
@@ -38,6 +40,7 @@ declare global {
 
 export interface AuthFormProps {
   mode?: "signin" | "signup";
+  redirectPath?: string;
 }
 
 export function GoogleIcon({ className = "size-5" }: { className?: string }) {
@@ -67,19 +70,24 @@ const GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
   "610110362365-k86f6tacfpeuv220vk3e42hno621q22s.apps.googleusercontent.com";
 
-/**
- * Clean, end-to-end Google Authentication component.
- * Exclusively renders Google's official Sign-In button and handles ID token
- * verification against the Spring Boot backend.
- */
-export function AuthForm({}: AuthFormProps = {}) {
+export function AuthForm({ redirectPath }: AuthFormProps = {}) {
   const navigate = useNavigate();
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load Google Identity Services script if not already present
+  // Onboarding state after Google verification
+  const [onboardingAuth, setOnboardingAuth] = useState<authService.AuthResponse | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const targetPath =
+    redirectPath ||
+    (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null) ||
+    "/create";
+
+  // Load Google Identity Services script
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -113,7 +121,7 @@ export function AuthForm({}: AuthFormProps = {}) {
 
   // Initialize Google Identity Services and render button once SDK is ready
   useEffect(() => {
-    if (!scriptLoaded || !window.google?.accounts?.id || !buttonContainerRef.current) {
+    if (!scriptLoaded || !window.google?.accounts?.id || !buttonContainerRef.current || onboardingAuth) {
       return;
     }
 
@@ -132,8 +140,9 @@ export function AuthForm({}: AuthFormProps = {}) {
 
           try {
             const authResult = await authService.authenticateWithGoogle(idToken);
-            toast.success(`Welcome to CineBuddies, ${authResult.displayName}!`);
-            await navigate({ to: "/create" });
+            // Present basic information setup step
+            setOnboardingAuth(authResult);
+            setDisplayName(authResult.displayName || "");
           } catch (err: unknown) {
             const message =
               err instanceof Error
@@ -149,10 +158,8 @@ export function AuthForm({}: AuthFormProps = {}) {
         cancel_on_tap_outside: true,
       });
 
-      // Clear any previous child nodes in container
       buttonContainerRef.current.innerHTML = "";
 
-      // Render the official Google Sign-In Button
       window.google.accounts.id.renderButton(buttonContainerRef.current, {
         type: "standard",
         theme: "filled_black",
@@ -163,12 +170,94 @@ export function AuthForm({}: AuthFormProps = {}) {
         width: 320,
       });
 
-      // Also trigger Google One Tap if eligible
       window.google.accounts.id.prompt();
     } catch (initErr) {
       console.error("[CineBuddies] Google Identity Services init error:", initErr);
     }
-  }, [scriptLoaded, navigate]);
+  }, [scriptLoaded, onboardingAuth]);
+
+  // Handle saving the user's basic information to the database
+  const handleSaveProfile = async () => {
+    if (!onboardingAuth) return;
+    if (!displayName.trim()) {
+      setError("Please provide a display name.");
+      return;
+    }
+
+    setSavingProfile(true);
+    setError(null);
+
+    try {
+      await authService.updateUserProfile(onboardingAuth.userId, displayName.trim());
+      toast.success(`Profile saved! Welcome, ${displayName.trim()}!`);
+      await navigate({ to: targetPath });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update profile info.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // If user completed Google sign-in, show basic profile info step
+  if (onboardingAuth) {
+    return (
+      <div className="space-y-5 animate-in fade-in-50 duration-300">
+        <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+          <CheckCircle2 size={18} />
+          <span>Google Account Verified</span>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Confirm your profile</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This is how your friends will see you in rooms, ballots, and group taste matchings.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <Input
+            label="Your Display Name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g. Nitro"
+            maxLength={30}
+            required
+          />
+
+          <div className="rounded-xl border border-border/70 bg-secondary/50 p-3 text-xs">
+            <span className="text-muted-foreground">Connected email:</span>{" "}
+            <span className="font-semibold text-foreground">{onboardingAuth.email}</span>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <p className="font-semibold">{error}</p>
+          </div>
+        ) : null}
+
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() => void handleSaveProfile()}
+          disabled={savingProfile || !displayName.trim()}
+        >
+          {savingProfile ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Saving to database…
+            </>
+          ) : (
+            <>
+              Continue to CineBuddies <ArrowRight size={16} />
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

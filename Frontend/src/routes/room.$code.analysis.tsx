@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowRight, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/common/Button";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -19,6 +20,17 @@ function AnalysisPage() {
   const room = useRoomByCode(code);
   const navigate = useNavigate();
   const [analysis, setAnalysis] = useState<GroupAnalysis | null>(null);
+
+  // Guard: Step 3 (Analysis) requires preferences before analysis can be viewed
+  useEffect(() => {
+    if (!room) return;
+    const members = room.members || [];
+    const readyCount = members.filter((m) => m.preferencesSubmitted).length;
+    if (readyCount === 0) {
+      toast.error("Submit preferences first before accessing group analysis.");
+      void navigate({ to: "/room/$code", params: { code: room.code } });
+    }
+  }, [room, navigate]);
 
   useEffect(() => {
     if (!room) return;
