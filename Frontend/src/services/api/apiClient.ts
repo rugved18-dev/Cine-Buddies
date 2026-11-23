@@ -3,7 +3,24 @@
  */
 
 const env = import.meta.env as Record<string, string | undefined>;
-export const API_BASE_URL: string = env["VITE_API_BASE_URL"] || "http://localhost:8081/api";
+
+export function getApiBaseUrl(): string {
+  const envUrl = env["VITE_API_BASE_URL"];
+  if (typeof window !== "undefined") {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!isLocalhost && envUrl && (envUrl.includes("localhost") || envUrl.includes("127.0.0.1"))) {
+      console.warn(
+        `[CineBuddies] WARNING: Client is running in production (${window.location.origin}) but VITE_API_BASE_URL points to localhost (${envUrl}). Cloud users will not be able to connect to localhost.`,
+      );
+    }
+  }
+  return envUrl || "http://localhost:8081/api";
+}
+
+export const API_BASE_URL: string = getApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
@@ -18,6 +35,7 @@ export class ApiError extends Error {
 /**
  * Executes a typed REST request against the Spring Boot backend.
  * Automatically injects the JWT Bearer authorization header if present.
+ * Includes a 35-second timeout to handle cloud backend cold-starts (e.g. Render free tier).
  */
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token =
@@ -32,12 +50,24 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     ...((init.headers as Record<string, string>) ?? {}),
   };
 
-  const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const effectiveBaseUrl = getApiBaseUrl();
+  const url = `${effectiveBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+  // 35-second timeout to accommodate cold starts without hanging indefinitely
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error("Request timed out. The backend server took too long to respond."));
+  }, 35000);
+
+  const signal = init.signal
+    ? anySignal([init.signal, controller.signal])
+    : controller.signal;
 
   try {
     const response = await fetch(url, {
       ...init,
       headers,
+      signal,
     });
 
     if (!response.ok) {
@@ -62,11 +92,47 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     return JSON.parse(text) as T;
   } catch (err: unknown) {
     if (err instanceof ApiError) throw err;
+
+    const isLocalhostMisconfig =
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1" &&
+      (effectiveBaseUrl.includes("localhost") || effectiveBaseUrl.includes("127.0.0.1"));
+
+    if (isLocalhostMisconfig) {
+      throw new ApiError(
+        `Backend connection failed: The site is running on Vercel (${window.location.hostname}) but the API URL is still set to localhost (${effectiveBaseUrl}). Please add VITE_API_BASE_URL=<your-render-url>/api in Vercel project environment variables.`,
+        0,
+      );
+    }
+
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(
+        "Connection timed out. If your backend is hosted on Render (free tier), it may still be waking up. Please try again in 30 seconds.",
+        0,
+      );
+    }
+
     throw new ApiError(
-      err instanceof Error ? err.message : `Failed to connect to backend at ${API_BASE_URL}`,
+      err instanceof Error ? err.message : `Failed to connect to backend at ${effectiveBaseUrl}`,
       0,
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
+}
+
+/** Combine multiple abort signals */
+function anySignal(signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      return controller.signal;
+    }
+    signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
+  }
+  return controller.signal;
 }
 
 export function delay(ms: number): Promise<void> {
