@@ -10,13 +10,14 @@ import java.util.Map;
 @RestController
 public class HealthController {
 
-    @GetMapping(value = {"/", "/health", "/api/health"})
-    public ResponseEntity<Map<String, Object>> health() {
-        return ResponseEntity.ok(Map.of(
-                "status", "UP",
-                "service", "cinebuddies-backend",
-                "timestamp", System.currentTimeMillis()
-        ));
-    }
+	@GetMapping(value = {"/", "/health", "/api/health"})
+	public ResponseEntity<Map<String, Object>> health() {
+		return ResponseEntity.ok(Map.of(
+			"status", "UP",
+			"service", "cinebuddies-backend",
+			"timestamp", System.currentTimeMillis()
+		));
+	}
 
 }
+
