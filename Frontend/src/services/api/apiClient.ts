@@ -53,11 +53,11 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const effectiveBaseUrl = getApiBaseUrl();
   const url = `${effectiveBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
-  // 35-second timeout to accommodate cold starts without hanging indefinitely
+  // 60-second timeout to accommodate Render cloud backend cold-starts
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
-    controller.abort(new Error("Request timed out. The backend server took too long to respond."));
-  }, 35000);
+    controller.abort(new Error(`Request to ${url} timed out after 60s.`));
+  }, 60000);
 
   const signal = init.signal
     ? anySignal([init.signal, controller.signal])
@@ -93,6 +93,8 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   } catch (err: unknown) {
     if (err instanceof ApiError) throw err;
 
+    console.error(`[CineBuddies API Error] Failed request to: ${url}`, err);
+
     const isLocalhostMisconfig =
       typeof window !== "undefined" &&
       window.location.hostname !== "localhost" &&
@@ -101,20 +103,25 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 
     if (isLocalhostMisconfig) {
       throw new ApiError(
-        `Backend connection failed: The site is running on Vercel (${window.location.hostname}) but the API URL is still set to localhost (${effectiveBaseUrl}). Please add VITE_API_BASE_URL=<your-render-url>/api in Vercel project environment variables.`,
+        `Configuration error: Site is running on Vercel (${window.location.hostname}) but trying to connect to ${url}. Add VITE_API_BASE_URL=<your-render-url>/api in Vercel project environment variables and redeploy.`,
         0,
       );
     }
 
-    if (err instanceof DOMException && err.name === "AbortError") {
+    const isTimeout =
+      (err instanceof DOMException && err.name === "AbortError") ||
+      (err instanceof Error && (err.name === "AbortError" || err.message.includes("timed out"))) ||
+      controller.signal.aborted;
+
+    if (isTimeout) {
       throw new ApiError(
-        "Connection timed out. If your backend is hosted on Render (free tier), it may still be waking up. Please try again in 30 seconds.",
+        `Connection to ${url} timed out after 60s. If your backend on Render is waking up from sleep, it may take ~50s. Please verify your Render service is 'Live' and try again.`,
         0,
       );
     }
 
     throw new ApiError(
-      err instanceof Error ? err.message : `Failed to connect to backend at ${effectiveBaseUrl}`,
+      err instanceof Error ? err.message : `Failed to connect to backend at ${url}`,
       0,
     );
   } finally {

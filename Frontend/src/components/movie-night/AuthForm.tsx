@@ -304,12 +304,23 @@ export function AuthForm({ redirectPath }: AuthFormProps = {}) {
       </div>
 
       {error ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive text-center justify-center">
+        <div className="flex flex-col items-center gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive text-center justify-center">
           <div className="flex items-center gap-1.5 font-semibold">
             <AlertCircle className="size-4 shrink-0" />
             <span>Connection issue</span>
           </div>
-          <p className="text-[11px] leading-relaxed text-destructive/90">{error}</p>
+          <p className="text-[11px] leading-relaxed text-destructive/90 break-all">{error}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setSubmitting(false);
+              window.google?.accounts?.id?.prompt();
+            }}
+            className="mt-1 rounded-lg bg-destructive/20 hover:bg-destructive/30 text-destructive font-medium px-3 py-1 text-xs transition-colors cursor-pointer"
+          >
+            Try Again
+          </button>
         </div>
       ) : null}
 
