@@ -29,12 +29,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CRITICAL: Unblocks preflight
-                        .requestMatchers("/api/auth/**", "/api/rooms/**", "/api/health", "/error", "/actuator/**").permitAll()
+                        .requestMatchers("/", "/health", "/api/health", "/api/auth/**", "/api/rooms/**", "/error", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -46,10 +46,10 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
-            "https://cine-buddies.vercel.app",
-            "https://*.vercel.app",
-            "http://localhost:*",
-            "http://127.0.0.1:*"
+                "https://cine-buddies.vercel.app",
+                "https://*.vercel.app",
+                "http://localhost:*",
+                "http://127.0.0.1:*"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         config.setAllowedHeaders(List.of("*")); // Allow all headers
@@ -59,10 +59,8 @@ public class SecurityConfig {
         return source;
     }
 
-        @Bean
-        public PasswordEncoder passwordEncoder
-            
-        () {
+    @Bean
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }
