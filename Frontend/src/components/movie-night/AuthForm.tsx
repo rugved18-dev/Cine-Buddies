@@ -75,21 +75,7 @@ export function AuthForm({ redirectPath }: AuthFormProps = {}) {
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [slowServerNotice, setSlowServerNotice] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (submitting) {
-      setSlowServerNotice(false);
-      timer = setTimeout(() => {
-        setSlowServerNotice(true);
-      }, 3500);
-    } else {
-      setSlowServerNotice(false);
-    }
-    return () => clearTimeout(timer);
-  }, [submitting]);
 
   // Onboarding state after Google verification
   const [onboardingAuth, setOnboardingAuth] = useState<authService.AuthResponse | null>(null);
@@ -277,16 +263,9 @@ export function AuthForm({ redirectPath }: AuthFormProps = {}) {
     <div className="space-y-5">
       <div className="flex flex-col items-center justify-center min-h-[50px] w-full pt-1">
         {submitting ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-3 text-center">
-            <div className="flex items-center justify-center gap-2.5 text-sm text-primary font-medium">
-              <Loader2 className="size-5 animate-spin" />
-              <span>Verifying with backend…</span>
-            </div>
-            {slowServerNotice ? (
-              <p className="max-w-xs text-[11px] text-muted-foreground animate-in fade-in">
-                Connecting to cloud server (Render free tier can take up to 45 seconds to wake up from cold sleep)…
-              </p>
-            ) : null}
+          <div className="flex items-center justify-center gap-2.5 py-4 text-sm text-primary font-medium">
+            <Loader2 className="size-5 animate-spin" />
+            <span>Verifying with backend…</span>
           </div>
         ) : (
           <div

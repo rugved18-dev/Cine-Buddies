@@ -115,7 +115,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 
     if (isTimeout) {
       throw new ApiError(
-        `Connection to ${url} timed out after 60s. If your backend on Render is waking up from sleep, it may take ~50s. Please verify your Render service is 'Live' and try again.`,
+        `Connection timed out. Please check your network connection and try again.`,
         0,
       );
     }
