@@ -22,7 +22,8 @@ const VOTES_CACHE_PREFIX = "cinebuddies_votes_";
 export function getLocalVotes(roomCode: string): Record<string, VoteChoice> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(`${VOTES_CACHE_PREFIX}${normalizeRoomCode(roomCode)}`);
+    const key = `${VOTES_CACHE_PREFIX}${normalizeRoomCode(roomCode)}`;
+    const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -33,7 +34,14 @@ export function setLocalVote(roomCode: string, movieId: string, choice: VoteChoi
   if (typeof window === "undefined") return;
   const current = getLocalVotes(roomCode);
   current[movieId] = choice;
-  localStorage.setItem(`${VOTES_CACHE_PREFIX}${normalizeRoomCode(roomCode)}`, JSON.stringify(current));
+  const key = `${VOTES_CACHE_PREFIX}${normalizeRoomCode(roomCode)}`;
+  const val = JSON.stringify(current);
+  try {
+    sessionStorage.setItem(key, val);
+  } catch {}
+  try {
+    localStorage.setItem(key, val);
+  } catch {}
 }
 
 export async function getRoomVotes(roomCode: string): Promise<BackendVote[]> {

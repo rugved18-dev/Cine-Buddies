@@ -173,20 +173,28 @@ function ResultPage() {
       </div>
 
       <section className="rounded-2xl border border-border/70 bg-card p-5">
-        <h2 className="text-sm font-semibold text-foreground">Group Participation</h2>
+        <h2 className="text-sm font-semibold text-foreground">Group Participation (All Member Ballots)</h2>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {members.map((member) => {
             const memberVotes = allVotes.filter((v) => v.memberId === member.id);
+            const hasVoted = memberVotes.length > 0;
             return (
               <li
                 key={member.id}
                 className="flex items-center justify-between rounded-xl border border-border/60 bg-secondary/50 px-4 py-2.5 text-sm"
               >
-                <span className="text-foreground">{member.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {memberVotes.length > 0
-                    ? `voted on ${memberVotes.length} title${memberVotes.length === 1 ? "" : "s"}`
-                    : "no votes cast"}
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground font-medium">{member.name}</span>
+                  {member.isHost ? (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-lavender">
+                      Host
+                    </span>
+                  ) : null}
+                </div>
+                <span className={`text-xs font-medium ${hasVoted ? "text-emerald-400" : "text-muted-foreground"}`}>
+                  {hasVoted
+                    ? `voted on ${memberVotes.length} title${memberVotes.length === 1 ? "" : "s"} ✓`
+                    : "no votes cast ⏳"}
                 </span>
               </li>
             );

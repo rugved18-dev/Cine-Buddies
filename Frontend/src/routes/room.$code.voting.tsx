@@ -108,6 +108,9 @@ function VotingPage() {
 if (!room) return null;
 
 const members = room.members || [];
+const joinedMembers = members.filter((m) => m.joined);
+const totalJoined = Math.max(joinedMembers.length, 1);
+
 const myMemberId =
   roomService.getMyMemberId(room.code) ||
   members.find((m) => session.user?.name && m.name?.toLowerCase() === session.user.name.toLowerCase())?.id;
@@ -115,11 +118,22 @@ const myMemberId =
 const hostMember = members.find((m) => m.isHost) || members[0];
 const isHost = myMemberId === hostMember?.id;
 
-// Track group participation: which members have cast at least one vote
-const membersWhoVoted = new Set(allVotes.map((v) => v.memberId));
+// Count how many candidate movies each member has voted on
+const candidateCount = movies.length;
+const memberVoteCounts = new Map<string, number>();
+for (const vote of allVotes) {
+  memberVoteCounts.set(vote.memberId, (memberVoteCounts.get(vote.memberId) || 0) + 1);
+}
+
+// A member is completely done when they have voted on all candidate movies
+const completedMembers = joinedMembers.filter((m) => {
+  const count = memberVoteCounts.get(m.id) || 0;
+  return candidateCount > 0 ? count >= candidateCount : count > 0;
+});
+
+// STRICT GATE: Winner can only be revealed when ALL joined members have completed voting
+const allMembersHaveVoted = candidateCount > 0 && completedMembers.length >= totalJoined;
 const myVotedCount = Object.keys(userVotes).length;
-const totalMembers = Math.max(members.length, 1);
-const allMembersHaveVoted = membersWhoVoted.size >= totalMembers;
 
 // Group-wide score tallies per movie
 const groupScores = calculateGroupScores(movies, allVotes);
@@ -150,92 +164,119 @@ const handleVote = async (movie: Movie, choice: VoteChoice) => {
 };
 
 const handleFinalize = async () => {
+  if (!isHost) {
+    toast.error("Only the room host can reveal the group winner.");
+    return;
+  }
   if (!movies.length) {
     toast.error("No movies available to finalize.");
     return;
   }
 
-    if (allVotes.length === 0 && myVotedCount === 0) {
-      toast.error("At least one member must cast a vote before revealing the winner.");
-      return;
-    }
+  // Require ALL members to have completed voting
+  if (!allMembersHaveVoted) {
+    const remaining = joinedMembers.filter((m) => !completedMembers.some((c) => c.id === m.id));
+    const remainingNames = remaining.map((r) => r.name).join(", ");
+    toast.error(
+      `Cannot reveal winner yet: waiting for ${remainingNames} to finish voting (${completedMembers.length} of ${totalJoined} members finished).`
+    );
+    return;
+  }
 
-    // If some members have not voted yet, require confirmation
-    if (!allMembersHaveVoted) {
-      const confirmEarly = window.confirm(
-        `Only ${membersWhoVoted.size} of ${totalMembers} members have voted so far. Finalize now and pick the winner based on current votes?`
-      );
-      if (!confirmEarly) return;
-    }
+  // Determine the true winning movie across ALL group votes
+  const winner = determineGroupWinner(movies, allVotes);
+  if (!winner) {
+    toast.error("Could not calculate a winner from the cast votes.");
+    return;
+  }
 
-      // Determine the true winning movie across ALL group votes
-      const winner = determineGroupWinner(movies, allVotes);
-      if (!winner) {
-        toast.error("Could not calculate a winner from the cast votes.");
-        return;
-      }
+  setFinalizing(true);
+  try {
+    const hostId = hostMember?.id || myMemberId;
+    await finalizeVoting(normalizedCode, hostId, winner.id);
+    toast.success(`Winner locked in: ${winner.title}`);
+    await navigate({ to: "/room/$code/result", params: { code: normalizedCode } });
+  } catch {
+    toast.error("Failed to finalize voting. Check host permissions.");
+  } finally {
+    setFinalizing(false);
+  }
+};
 
-      setFinalizing(true);
-      try {
-        const hostId = hostMember?.id || myMemberId;
-        await finalizeVoting(normalizedCode, hostId, winner.id);
-        toast.success(`Winner locked in: ${winner.title}`);
-        await navigate({ to: "/room/$code/result", params: { code: normalizedCode } });
-      } catch {
-        toast.error("Failed to finalize voting. Check host permissions.");
-      } finally {
-        setFinalizing(false);
-      }
-    };
-
-    return (
-      <div className="space-y-8">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">Group Voting</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Yes = 2 points · Maybe = 1 point · No = 0 points. You voted on {myVotedCount} of{" "}
-              {movies.length} titles.
-            </p>
-          </div>
-          <Button size="lg" onClick={() => void handleFinalize()} disabled={finalizing}>
-            <Trophy size={16} /> {finalizing ? "Finalizing…" : "Reveal the winner"}
-          </Button>
-        </header>
-
-        {/* Group readiness banner */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card p-4">
-          <div className="flex items-center gap-3">
-            <Users size={18} className="text-primary" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Group voting progress: {membersWhoVoted.size} of {totalMembers} members voted
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {allMembersHaveVoted
-                  ? "All group members have submitted their votes! The host can reveal the winner."
-                  : "Waiting for everyone in the group to cast their votes so the result reflects the whole group."}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {members.map((member) => {
-              const hasVoted = membersWhoVoted.has(member.id);
-              return (
-                <span
-                  key={member.id}
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium border ${hasVoted
-                      ? "border-success/40 bg-success/15 text-success"
-                      : "border-border/60 bg-muted/60 text-muted-foreground"
-                    }`}
-                  title={hasVoted ? `${member.name} has voted` : `${member.name} has not voted yet`}
-                >
-                  {member.name} {hasVoted ? "✓" : "⏳"}
-                </span>
-              );
-            })}
-          </div>
+return (
+  <div className="space-y-8">
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">Group Voting</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Yes = 2 points · Maybe = 1 point · No = 0 points. You voted on {myVotedCount} of{" "}
+          {candidateCount} titles.
+        </p>
+      </div>
+      {isHost ? (
+        <Button
+          size="lg"
+          onClick={() => void handleFinalize()}
+          disabled={finalizing || !allMembersHaveVoted}
+          title={
+            !allMembersHaveVoted
+              ? `Waiting for all members to finish voting (${completedMembers.length} of ${totalJoined} ready)`
+              : "Reveal the group winner"
+          }
+        >
+          <Trophy size={16} /> {finalizing ? "Finalizing…" : "Reveal the winner"}
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-secondary/50 px-3.5 py-2 text-xs font-medium text-muted-foreground">
+          <Users size={14} className="text-primary" />
+          <span>Waiting for host to reveal winner once all members finish voting</span>
         </div>
+      )}
+    </header>
+
+    {/* Group readiness banner with per-member ballot count */}
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card p-4">
+      <div className="flex items-center gap-3">
+        <Users size={18} className="text-primary" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            Group voting progress: {completedMembers.length} of {totalJoined} members completed
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {allMembersHaveVoted
+              ? "All group members have completed voting! The host can now reveal the group winner."
+              : "All members must cast their votes on all titles so the winner accurately reflects everyone's tastes."}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {joinedMembers.map((member) => {
+          const count = memberVoteCounts.get(member.id) || 0;
+          const isDone = candidateCount > 0 ? count >= candidateCount : count > 0;
+          return (
+            <span
+              key={member.id}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium border flex items-center gap-1.5 ${
+                isDone
+                  ? "border-success/40 bg-success/15 text-success font-semibold"
+                  : "border-border/60 bg-muted/60 text-muted-foreground"
+              }`}
+              title={
+                isDone
+                  ? `${member.name} has completed voting (${count}/${candidateCount})`
+                  : `${member.name} is still voting (${count}/${candidateCount})`
+              }
+            >
+              <span>{member.name}</span>
+              <span className="text-[10px] font-mono">
+                ({count}/{candidateCount})
+              </span>
+              {isDone ? "✓" : "⏳"}
+            </span>
+          );
+        })}
+      </div>
+    </div>
 
         {loading ? (
           <LoadingState label="Loading candidates for voting…" />

@@ -20,12 +20,23 @@ const MEMBER_STORAGE_PREFIX = "cinebuddies_member_";
 
 export function getMyMemberId(roomCode: string): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(`${MEMBER_STORAGE_PREFIX}${normalizeRoomCode(roomCode)}`);
+  const key = `${MEMBER_STORAGE_PREFIX}${normalizeRoomCode(roomCode)}`;
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
 }
 
 export function setMyMemberId(roomCode: string, memberId: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(`${MEMBER_STORAGE_PREFIX}${normalizeRoomCode(roomCode)}`, memberId);
+  const key = `${MEMBER_STORAGE_PREFIX}${normalizeRoomCode(roomCode)}`;
+  try {
+    sessionStorage.setItem(key, memberId);
+  } catch {
+    // Ignore sessionStorage quota / private browsing errors
+  }
+  try {
+    localStorage.setItem(key, memberId);
+  } catch {
+    // Ignore localStorage errors
+  }
 }
 
 export async function createRoom(input: {
